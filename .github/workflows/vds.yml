@@ -11,11 +11,19 @@ jobs:
     steps:
     - name: 1. Sistem Ayarlarini Yap
       run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
-        net user runneradmin VdsSifre123! /add
-        net localgroup administrators runneradmin /add
+        # RDP Aktif Et (Hata olsa da devam et)
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0 -ErrorAction SilentlyContinue
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1 -ErrorAction SilentlyContinue
+        
+        # Kullanıcıyı kontrol et ve ekle (Varsa hata vermez)
+        $user = Get-LocalUser -Name "runneradmin" -ErrorAction SilentlyContinue
+        if ($user -eq $null) {
+            net user runneradmin VdsSifre123! /add
+            net localgroup administrators runneradmin /add
+        } else {
+            net user runneradmin VdsSifre123! # Sadece şifreyi güncelle
+        }
 
     - name: 2. Baglanti Araci (Cloudflare) Yukle
       run: |
@@ -25,8 +33,9 @@ jobs:
     - name: 3. Baglantiyi Baslat
       run: |
         Write-Host "VDS Baslatiliyor... Loglari takip et!"
+        # Tunnel'ı başlat
         Start-Process -FilePath "cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389"
-        Start-Sleep -Seconds 10
+        Start-Sleep -Seconds 15
 
     - name: 4. Bekleme Modu (Kapanmamasi Icin)
       run: |
@@ -34,5 +43,4 @@ jobs:
         Write-Host "Kullanici: runneradmin"
         Write-Host "Sifre: VdsSifre123!"
         Write-Host "-----------------------"
-        Write-Host "Loglarda 'https://xxxx.trycloudflare.com' seklinde bir adres goreceksin."
         Start-Sleep -Seconds 21600
