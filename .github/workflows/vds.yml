@@ -1,0 +1,38 @@
+name: GitHub-Windows-VDS
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  run-vds:
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+    - name: 1. Sistem Ayarlarini Yap
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
+        net user runneradmin VdsSifre123! /add
+        net localgroup administrators runneradmin /add
+
+    - name: 2. Baglanti Araci (Cloudflare) Yukle
+      run: |
+        Invoke-WebRequest https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.msi -OutFile cf.msi
+        Start-Process msiexec.exe -ArgumentList '/i cf.msi /quiet /norestart' -Wait
+
+    - name: 3. Baglantiyi Baslat
+      run: |
+        Write-Host "VDS Baslatiliyor... Loglari takip et!"
+        Start-Process -FilePath "cloudflared.exe" -ArgumentList "tunnel --url tcp://localhost:3389"
+        Start-Sleep -Seconds 10
+
+    - name: 4. Bekleme Modu (Kapanmamasi Icin)
+      run: |
+        Write-Host "--- GIRIS BILGILERI ---"
+        Write-Host "Kullanici: runneradmin"
+        Write-Host "Sifre: VdsSifre123!"
+        Write-Host "-----------------------"
+        Write-Host "Loglarda 'https://xxxx.trycloudflare.com' seklinde bir adres goreceksin."
+        Start-Sleep -Seconds 21600
